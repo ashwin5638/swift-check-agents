@@ -1,4 +1,4 @@
-# Shift-Check — Daily Maritime News-Reel Pipeline
+# Swift-Check Agents — Daily Maritime News-Reel Pipeline
 
 A LangGraph state machine (Python) plus a React control-room dashboard. It picks **one major marine-industry event a day**, writes a narration, renders a 20–30s vertical reel with burned-in captions, and posts it to Facebook and LinkedIn — but only after a human approves it.
 
