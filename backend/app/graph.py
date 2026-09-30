@@ -47,14 +47,13 @@ def render_with_recovery_node(state: PipelineState) -> dict:
         render_result["status"] = "failed"
         return {
             "render_result": render_result,
-            "_last_render_error": str(e),  # transient, consumed by recovery_node_wrapper
+            "last_render_error": str(e),
             "status": "recovering",
         }
 
 
 def recovery_node_wrapper(state: PipelineState) -> dict:
-    error_message = state.get("_last_render_error", "Unknown render failure")
-    return recovery_node(state, error_message)
+    return recovery_node(state, state.get("last_render_error") or "Unknown render failure")
 
 
 def route_after_render(state: PipelineState) -> str:
@@ -81,10 +80,6 @@ def approval_gate_node(state: PipelineState) -> dict:
     }
 
 
-def default_caption(title: str) -> str:
-    return f"{title} #news #shorts"
-
-
 def publish_node(state: PipelineState, caption: str | None = None) -> dict:
     """
     Push an approved reel to every social platform.
@@ -94,7 +89,9 @@ def publish_node(state: PipelineState, caption: str | None = None) -> dict:
     lands in error_log without hiding a post that did succeed.
     """
     result = state["render_result"]
-    text = (caption or default_caption(state.get("script", {}).get("title", ""))).strip()
+    # Fallback for API clients that approve without a caption; the dashboard
+    # always sends its own pre-filled one.
+    text = (caption or f"{state.get('script', {}).get('title', '')} #news #shorts").strip()
     urls: dict[str, str] = dict(state.get("social_post_urls", {}))
     errors = list(state.get("error_log", []))
 
@@ -143,9 +140,8 @@ def build_graph():
         "end": END,
     })
 
-    # Hardcoded edge: writer finishes -> deterministic duration check runs
-    # automatically as part of scriptwriter_node's own return value, then
-    # we branch purely on that boolean.
+    # The writer computes duration_check_passed itself in Python, so the
+    # branch below is a plain boolean test — no LLM call to decide it.
     graph.add_conditional_edges("scriptwriter", route_after_duration_check, {
         "render": "render",
         "critic": "critic",

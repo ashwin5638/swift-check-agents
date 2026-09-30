@@ -63,9 +63,6 @@ class LLMClient:
 
         return json.loads(raw)
 
-    def close(self) -> None:
-        self._client.close()
-
 
 _client: LLMClient | None = None
 

@@ -26,7 +26,7 @@ export async function startRun() {
 }
 
 export async function listRuns() {
-  return request("/runs"); // [{ run_id, status, created_at, title, approval }] newest first
+  return request("/runs"); // [{ run_id, status, trigger, created_at, title, duration_sec }]
 }
 
 export async function getRun(runId) {

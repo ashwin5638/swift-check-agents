@@ -5,7 +5,7 @@ import { mediaUrl } from "../api.js";
  * asked to approve, so it has to be the real file — not a path, not a
  * thumbnail. Renders are 1080x1920, hence the vertical frame.
  */
-export default function ReelPlayer({ videoUrl, caption }) {
+export default function ReelPlayer({ videoUrl }) {
   const src = mediaUrl(videoUrl);
 
   if (!src) {
@@ -25,7 +25,6 @@ export default function ReelPlayer({ videoUrl, caption }) {
         </a>
         .
       </video>
-      {caption && <p className="reel-caption">{caption}</p>}
     </div>
   );
 }

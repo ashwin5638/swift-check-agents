@@ -44,7 +44,6 @@ def research_node(state: PipelineState) -> dict:
 
     if not headlines:
         return {
-            "raw_headlines": [],
             "status": "failed",
             "error_log": state.get("error_log", []) + [
                 {"node": "research_agent", "message": "No headlines returned from any RSS feed", "resolved": False}
@@ -60,7 +59,6 @@ def research_node(state: PipelineState) -> dict:
     selected_id = result.get("selected_story_id")
     if not selected_id or selected_id == "none":
         return {
-            "raw_headlines": headlines,
             "status": "failed",
             "error_log": state.get("error_log", []) + [
                 {"node": "research_agent", "message": "No major marine industry event found in today's feeds", "resolved": False}
@@ -70,7 +68,6 @@ def research_node(state: PipelineState) -> dict:
     selected = next((h for h in headlines if h["id"] == selected_id), None)
     if selected is None:
         return {
-            "raw_headlines": headlines,
             "status": "failed",
             "error_log": state.get("error_log", []) + [
                 {"node": "research_agent", "message": f"Model picked unknown story id {selected_id!r}", "resolved": False}
@@ -78,8 +75,6 @@ def research_node(state: PipelineState) -> dict:
         }
 
     return {
-        "raw_headlines": headlines,
-        "selected_story_id": selected["id"],
         "selected_story": selected,
         "selection_reason": result.get("reason", ""),
         "status": "writing",

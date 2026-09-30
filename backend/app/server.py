@@ -18,11 +18,19 @@ _subscribers: dict[str, list[WebSocket]] = {}
 _publishing: set[str] = set()                   # run_ids with an upload in flight
 
 
+def _log(run_id: str, node: str, message: str) -> None:
+    _run_events.setdefault(run_id, []).append(
+        {"ts": time.time(), "node": node, "message": message}
+    )
+
+
 def log_event(node: str, message: str) -> None:
-    """Broadcast to every open dashboard, not tied to any one run."""
-    entry = {"ts": time.time(), "node": node, "message": message}
+    """
+    A run-independent event (the scheduler arming/disarming). Appended to the
+    log of every run a dashboard is currently watching, and printed.
+    """
     for run_id in list(_subscribers):
-        _run_events.setdefault(run_id, []).append(entry)
+        _log(run_id, node, message)
     print(f"[{node}] {message}")
 
 
@@ -34,6 +42,14 @@ async def _broadcast(run_id: str, payload: dict) -> None:
             _unsubscribe(run_id, ws)
 
 
+async def _push_state(run_id: str, state: dict[str, Any], node: str, message: str) -> None:
+    """Persist a state change, log it, and stream both to open dashboards."""
+    _runs[run_id] = state
+    _log(run_id, node, message)
+    await _broadcast(run_id, {"type": "state", "state": state})
+    await _broadcast(run_id, {"type": "log", "entry": _run_events[run_id][-1]})
+
+
 async def _run_pipeline(run_id: str, trigger: str = "manual") -> None:
     state: dict = {
         "run_id": run_id,
@@ -41,24 +57,18 @@ async def _run_pipeline(run_id: str, trigger: str = "manual") -> None:
         "error_log": [],
         "trigger": trigger,
     }
-    _runs[run_id] = state
-    _log(run_id, "system", f"Run started ({trigger})")
-    await _broadcast(run_id, {"type": "state", "state": state})
-    await _broadcast(run_id, {"type": "log", "entry": _run_events[run_id][-1]})
+    await _push_state(run_id, state, "system", f"Run started ({trigger})")
 
     try:
         async for step in _graph.astream(state):
             node_name, patch = next(iter(step.items()))
             state = {**state, **patch}
-            _runs[run_id] = state
-            _log(run_id, node_name, f"completed -> status={state.get('status')}")
-            await _broadcast(run_id, {"type": "state", "state": state})
-            await _broadcast(run_id, {"type": "log", "entry": _run_events[run_id][-1]})
+            await _push_state(
+                run_id, state, node_name, f"completed -> status={state.get('status')}"
+            )
     except Exception as e:  # noqa: BLE001
         state["status"] = "failed"
-        _log(run_id, "system", f"Fatal error: {e}")
-        await _broadcast(run_id, {"type": "state", "state": state})
-        await _broadcast(run_id, {"type": "log", "entry": _run_events[run_id][-1]})
+        await _push_state(run_id, state, "system", f"Fatal error: {e}")
 
 
 _graph = build_graph()
@@ -94,11 +104,6 @@ app.add_middleware(
 app.mount(media.MEDIA_MOUNT, StaticFiles(directory=media.MEDIA_ROOT), name="reels")
 
 
-def _log(run_id: str, node: str, message: str) -> None:
-    entry = {"ts": time.time(), "node": node, "message": message}
-    _run_events.setdefault(run_id, []).append(entry)
-
-
 def _snapshot(run_id: str) -> dict[str, Any]:
     """
     One authoritative frame of a run. Served by GET /runs/{run_id} and used
@@ -124,8 +129,6 @@ def _run_summary(run_id: str, state: dict[str, Any]) -> dict[str, Any]:
         "created_at": events[0]["ts"] if events else None,
         "title": story.get("title") or state.get("script", {}).get("title"),
         "duration_sec": render.get("duration_sec"),
-        "video_url": render.get("video_url") or "",
-        "approval": (state.get("approval") or {}).get("decision", "pending"),
     }
 
 
@@ -133,14 +136,6 @@ def _unsubscribe(run_id: str, websocket: WebSocket) -> None:
     subscribers = _subscribers.get(run_id)
     if subscribers and websocket in subscribers:
         subscribers.remove(websocket)
-
-
-async def _push_state(run_id: str, state: dict[str, Any], node: str, message: str) -> None:
-    """Persist a state change, log it, and stream both to open dashboards."""
-    _runs[run_id] = state
-    _log(run_id, node, message)
-    await _broadcast(run_id, {"type": "state", "state": state})
-    await _broadcast(run_id, {"type": "log", "entry": _run_events[run_id][-1]})
 
 
 async def _publish(run_id: str, caption: Optional[str]) -> None:

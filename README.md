@@ -180,9 +180,11 @@ Four LLM agents exist. **Two of them run on every successful pipeline; two almos
 ### Agent 4 — Recovery (`agents/recovery_agent.py`)
 
 1. **Invoked only** when `render` raises a `RenderError` (Pexels 404, FFmpeg failure).
-2. Reads the raw error string and returns either a new `image_query` or an FFmpeg parameter change.
+2. Reads the raw error string and returns a new `image_query`.
 3. The graph routes straight back to `render`.
 4. Hard cap of **3 attempts** (`MAX_RECOVERY_ATTEMPTS`), then the run fails.
+
+> The render node's ffmpeg parameters are fixed, so a footage query is the only thing a retry can usefully change.
 
 ### Routing: zero LLM cost
 
@@ -242,7 +244,7 @@ There are exactly **4 places in the codebase that call an LLM** — one per agen
 ### Per-call cost notes
 
 - `CAVEMAN_SYSTEM_SUFFIX` (`llm_client.py:17`) is appended to **every** system prompt, so that overhead is paid on each of the 2–7 calls a run makes.
-- The Critic is the heaviest call in the pipeline: `critic_agent.py:77` re-sends the entire current script on every revision, so its cost scales with how wrong the first draft was.
+- The Critic is the heaviest call in the pipeline: `critic_agent.py:70` re-sends the entire current script on every revision, so its cost scales with how wrong the first draft was.
 
 ### Two caveats, stated as current behaviour
 
@@ -278,8 +280,8 @@ The output is **always 20–30s**. It is enforced twice, because the cheap check
 
 Nothing reaches a social platform automatically.
 
-- `approval_gate_node` (`graph.py:70`) is a deliberate dead end. It sets `status = "awaiting_approval"` and the graph ends.
-- Publishing is **not** a graph node. `publish_node` (`graph.py:88`) is a plain function — being called at all *is* the approval.
+- `approval_gate_node` (`graph.py:69`) is a deliberate dead end. It sets `status = "awaiting_approval"` and the graph ends.
+- Publishing is **not** a graph node. `publish_node` (`graph.py:83`) is a plain function — being called at all *is* the approval.
 - Only `POST /runs/{run_id}/approve` calls it, and only after a run is parked at the gate.
 - Because publishing is outside the graph, no reroute or retry can skip the human.
 - `POST /runs/{run_id}/reject` keeps the reel on the dashboard but never sends it anywhere.
@@ -385,7 +387,7 @@ All settings live in `backend/.env`. See `.env.example` for the annotated templa
 | `GROK_API_KEY` | — | xAI/Grok key. Use instead of Groq. |
 | `GROQ_MODEL` / `GROK_MODEL` | provider default | Override the chat model. |
 | `PEXELS_API_KEY` | — | Stock footage lookup. |
-| `FACEBOOK_APP_ID` / `_PAGE_ID` / `_PAGE_ACCESS_TOKEN` | — | Facebook Graph posting. |
+| `FACEBOOK_PAGE_ID` / `_PAGE_ACCESS_TOKEN` | — | Facebook Graph posting. |
 | `LINKEDIN_MEMBER_ID` / `_ACCESS_TOKEN` | — | LinkedIn personal profile posting. |
 | `LINKEDIN_ORG_URN` | — | Use instead for an organization page. |
 | `MIN_REEL_SECONDS` | `20` | Lower bound of the length window. |
@@ -400,7 +402,6 @@ All settings live in `backend/.env`. See `.env.example` for the annotated templa
 | `DAILY_RUN_HOUR` / `_MINUTE` | `8` / `0` | When the daily run fires. |
 | `DAILY_RUN_TIMEZONE` | `UTC` | **IANA** name, e.g. `Asia/Kolkata`. |
 | `RSS_FEEDS` | 9 maritime feeds | Comma-separated override. |
-| `PORT` | `8000` | Server port. |
 
 ---
 
@@ -409,8 +410,8 @@ All settings live in `backend/.env`. See `.env.example` for the annotated templa
 - **Add feeds** — set `RSS_FEEDS` in `.env` (comma-separated), or edit `DEFAULT_RSS_FEEDS` in `config.py`.
 - **Change reel length** — adjust `MIN_REEL_SECONDS` / `TARGET_REEL_SECONDS` / `MAX_REEL_SECONDS`.
 - **Change voice** — set `TTS_VOICE` to any Edge neural voice name.
-- **Add a platform (e.g. Instagram)** — add `social/instagram_post.py` exposing `post_reel_to_instagram(path, caption) -> url`, then add it to the `targets` tuple in `publish_node` (`graph.py:101`).
-- **Change publishing rules** — `publish_node` (`graph.py:88`) is the single place anything is uploaded. It is deliberately outside the graph so the approval gate cannot be bypassed.
+- **Add a platform (e.g. Instagram)** — add `social/instagram_post.py` exposing `post_reel_to_instagram(path, caption) -> url`, then add it to the `targets` tuple in `publish_node` (`graph.py:98`).
+- **Change publishing rules** — `publish_node` (`graph.py:83`) is the single place anything is uploaded. It is deliberately outside the graph so the approval gate cannot be bypassed.
 - **Add an agent** — write a node returning a partial `PipelineState` dict, register it in `build_graph()`, and add a `route_after_*` function. Never let an LLM decide the next node.
 
 ---

@@ -296,7 +296,6 @@ def render_node(state: PipelineState) -> dict:
             "tempo": round(tempo, 3),
             "tail_hold_sec": tail_hold,
             "trimmed": trim_to is not None,
-            "narrated": True,
             "voice": settings.tts_voice,
             "caption_cues": len(cues),
         },

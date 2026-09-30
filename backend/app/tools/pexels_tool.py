@@ -27,11 +27,12 @@ def fetch_stock_clip(query: str) -> str:
         params={"query": query, "per_page": 5, "orientation": "portrait"},
         timeout=15.0,
     )
+    resp.raise_for_status()
 
-    if resp.status_code == 404 or not resp.json().get("videos"):
+    videos = resp.json().get("videos")
+    if not videos:
         raise PexelsNotFoundError(f"Pexels returned 404 for query: '{query}'")
 
-    videos = resp.json()["videos"]
     # Pick the highest-resolution portrait file under a sane size cap.
     best = max(
         (f for v in videos for f in v["video_files"] if f.get("width", 0) <= 1080),
@@ -39,6 +40,6 @@ def fetch_stock_clip(query: str) -> str:
         default=None,
     )
     if best is None:
-        raise PexelsNotFoundError(f"Pexels returned 404 for query: '{query}'")
+        raise PexelsNotFoundError(f"Pexels returned no usable portrait file for: '{query}'")
 
     return best["link"]

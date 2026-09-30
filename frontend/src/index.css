@@ -378,13 +378,6 @@ html, body {
   font-size: 13px;
   text-align: center;
 }
-.reel-caption {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--muted);
-  word-break: break-word;
-}
 
 /* ---- Approval gate ---- */
 

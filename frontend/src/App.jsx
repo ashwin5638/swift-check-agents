@@ -241,7 +241,7 @@ export default function App() {
     <>
       <header className="topbar">
         <div className="masthead">
-          <h1>Wire Room</h1>
+          <h1>Swift-Check</h1>
           <span className="tagline">Daily maritime news-reel pipeline · LangGraph control room</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>

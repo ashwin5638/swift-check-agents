@@ -75,12 +75,12 @@ def _prompt() -> str:
     )
 
 
-def _estimate_duration(voiceover_full: str) -> float:
+def estimate_duration(voiceover_full: str) -> float:
     word_count = len(voiceover_full.split())
     return round(word_count / settings.words_per_second, 1)
 
 
-def _in_window(duration: float) -> bool:
+def in_length_window(duration: float) -> bool:
     return settings.min_reel_seconds <= duration <= settings.max_reel_seconds
 
 
@@ -93,19 +93,17 @@ def scriptwriter_node(state: PipelineState) -> dict:
         user_prompt=f"Headline: {story['title']}\nSource: {story['source']}",
     )
 
-    voiceover_full = " ".join(b["voiceover"] for b in result["beats"])
-    duration = _estimate_duration(voiceover_full)
+    duration = estimate_duration(" ".join(b["voiceover"] for b in result["beats"]))
 
     script = {
         "title": result["title"],
-        "voiceover_full": voiceover_full,
         "beats": result["beats"],
         "est_duration_sec": duration,
     }
 
     return {
         "script": script,
-        "duration_check_passed": _in_window(duration),
+        "duration_check_passed": in_length_window(duration),
         "critic_revision_count": state.get("critic_revision_count", 0),
         "status": "reviewing",
     }

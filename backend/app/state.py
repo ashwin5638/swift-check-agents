@@ -8,7 +8,7 @@ never talk to each other directly, they only hand off through State.
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, TypedDict
+from typing import Literal, Optional, TypedDict
 
 
 class Headline(TypedDict):
@@ -25,7 +25,6 @@ class ScriptBeat(TypedDict):
 
 class Script(TypedDict):
     title: str
-    voiceover_full: str
     beats: list[ScriptBeat]
     est_duration_sec: float
 
@@ -46,7 +45,6 @@ class RenderResult(TypedDict):
     tempo: Optional[float]             # atempo factor applied to narration
     tail_hold_sec: Optional[float]     # frozen tail used to reach the minimum
     trimmed: bool                     # narration had to be cut to fit
-    narrated: bool
     voice: Optional[str]
     caption_cues: int
 
@@ -67,8 +65,6 @@ class PipelineState(TypedDict, total=False):
     run_id: str
 
     # Agent 1 output
-    raw_headlines: list[Headline]
-    selected_story_id: str
     selected_story: Headline
     selection_reason: str
 
@@ -78,11 +74,14 @@ class PipelineState(TypedDict, total=False):
     # Deterministic length check + Agent 3 (Critic) output
     duration_check_passed: bool
     critic_revision_count: int
-    critic_direction: Optional[str]    # "too long" | "too short"
 
     # Agent 4 (Recovery) + render node
     render_result: RenderResult
     recovery_attempts: int
+
+    # Raw error text from the render node, handed to the Recovery Agent by
+    # render_with_recovery_node -> recovery_node_wrapper.
+    last_render_error: Optional[str]
 
     # Cross-cutting
     error_log: list[ErrorLogEntry]

@@ -10,7 +10,6 @@ WordBoundary events carry per-word offsets/durations, which the caption
 builder turns into karaoke-style timed cues.
 """
 
-import asyncio
 from pathlib import Path
 
 import edge_tts
@@ -25,18 +24,16 @@ class TTSError(Exception):
 class NarratedBeat:
     """One beat's audio plus the word timings needed to caption it."""
 
-    __slots__ = ("beat", "text", "audio_path", "duration", "words")
+    __slots__ = ("beat", "audio_path", "duration", "words")
 
     def __init__(
         self,
         beat: str,
-        text: str,
         audio_path: Path,
         duration: float,
         words: list[dict],
     ) -> None:
         self.beat = beat
-        self.text = text
         self.audio_path = audio_path
         self.duration = duration
         self.words = words  # [{start, end, text}] relative to this beat
@@ -117,7 +114,6 @@ async def narrate_beats(beats: list[dict], workdir: Path) -> list[NarratedBeat]:
         narrated.append(
             NarratedBeat(
                 beat=beat.get("beat", f"beat_{i}"),
-                text=text,
                 audio_path=out_path,
                 duration=duration,
                 words=[

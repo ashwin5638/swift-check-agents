@@ -24,11 +24,6 @@ HEADERS_BASE = {
     "X-Restli-Protocol-Version": "2.0.0",
 }
 
-# LinkedIn breaks the upload into parts of this size. We never hardcode the
-# split ourselves — firstByte/lastByte in the response define it — but this is
-# the size to expect in the instructions.
-PART_SIZE = 4 * 1024 * 1024
-
 
 def _headers() -> dict:
     return {

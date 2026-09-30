@@ -11,6 +11,7 @@ source. The Critic is never allowed to invent a reason to run.
 """
 
 from app.config import settings
+from app.agents.scriptwriter_agent import estimate_duration, in_length_window
 from app.llm_client import get_client
 from app.state import PipelineState
 
@@ -45,24 +46,16 @@ Return JSON exactly shaped as:
 MAX_REVISIONS = 2
 
 
-def _estimate_duration(voiceover_full: str) -> float:
-    word_count = len(voiceover_full.split())
-    return round(word_count / settings.words_per_second, 1)
-
-
 def critic_node(state: PipelineState) -> dict:
     script = state["script"]
     current = script["est_duration_sec"]
     revision_count = state.get("critic_revision_count", 0) + 1
+    target = settings.target_reel_seconds
 
     if current > settings.max_reel_seconds:
-        direction = "too long"
-        target = settings.target_reel_seconds
         delta = round(current - settings.max_reel_seconds, 1)
         instruction = f"Cut about {delta}s of spoken text."
     else:
-        direction = "too short"
-        target = settings.target_reel_seconds
         delta = round(settings.min_reel_seconds - current, 1)
         instruction = (
             f"Add about {delta}s of spoken text using context already in the script."
@@ -78,27 +71,21 @@ def critic_node(state: PipelineState) -> dict:
         ),
     )
 
-    voiceover_full = " ".join(b["voiceover"] for b in result["beats"])
-    duration = _estimate_duration(voiceover_full)
+    duration = estimate_duration(" ".join(b["voiceover"] for b in result["beats"]))
 
     revised_script = {
         "title": result["title"],
-        "voiceover_full": voiceover_full,
         "beats": result["beats"],
         "est_duration_sec": duration,
     }
 
     # Force-pass after MAX_REVISIONS so the graph can never loop forever.
     # The render node still guarantees the final file lands in the window.
-    in_window = (
-        settings.min_reel_seconds <= duration <= settings.max_reel_seconds
-    )
-    passed = in_window or revision_count >= MAX_REVISIONS
+    passed = in_length_window(duration) or revision_count >= MAX_REVISIONS
 
     return {
         "script": revised_script,
         "duration_check_passed": passed,
         "critic_revision_count": revision_count,
-        "critic_direction": direction,
         "status": "reviewing",
     }

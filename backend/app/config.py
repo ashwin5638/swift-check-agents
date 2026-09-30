@@ -103,7 +103,6 @@ class Settings:
     # Narration (edge-tts). British voice reads nautical terms correctly.
     tts_voice: str = _env("TTS_VOICE", default="en-GB-SoniaNeural")
     tts_rate: str = _env("TTS_RATE", default="+8%")
-    tts_dir: str = _env("TTS_OUTPUT_DIR", default="")
 
     # Burned-in captions
     captions_enabled: bool = _env("CAPTIONS_ENABLED", default="true").lower() == "true"
@@ -115,7 +114,6 @@ class Settings:
     caption_margin_v: int = int(_env("CAPTION_MARGIN_V", default="260"))
     caption_max_chars: int = int(_env("CAPTION_MAX_CHARS", default="26"))
 
-    facebook_app_id: str = _env("FACEBOOK_APP_ID")
     facebook_page_id: str = _env("FACEBOOK_PAGE_ID")
     facebook_access_token: str = _env(
         "FACEBOOK_PAGE_ACCESS_TOKEN", "FACEBOOK_ACCESS_TOKEN"

@@ -2,27 +2,26 @@
 Agent 4 — Recovery Agent (Error Handler)
 
 Takes one raw error string (e.g. "Pexels returned 404 for query:
-'abstract global warming'" or an FFmpeg stderr tail) and returns a
-state mutation the graph can route back into rendering with. This
-agent never emits chat text — only a JSON patch.
+'abstract global warming'") and returns a state mutation the graph can route
+back into rendering with. The only fix it can apply is a replacement footage
+query: the render node's ffmpeg parameters are fixed, so anything else would
+be discarded and only burn a retry.
 """
 
 from app.llm_client import get_client
 from app.state import PipelineState
 
 SYSTEM_PROMPT = """You are a recovery agent for a video-rendering
-pipeline. You will get one error string from either the Pexels stock
-video API or FFmpeg. Diagnose the likely cause and propose the
-smallest fix that lets the pipeline retry successfully.
+pipeline. You will get one error string from the Pexels stock video API.
+Diagnose the likely cause and propose the smallest replacement search
+query that lets the pipeline retry successfully.
 
-- If the error mentions Pexels/404/query, propose a broader or more
-  literal replacement search query (avoid abstract/metaphorical terms
-  stock libraries rarely have footage for).
-- If the error mentions FFmpeg, propose a safe parameter change
-  (e.g. drop an unsupported filter, reduce resolution, fix a codec).
+Propose a broader or more literal query: stock libraries rarely have
+footage for abstract or metaphorical terms (ships, ports, cranes, tankers,
+offshore rigs, containers, open sea and weather all have plenty).
 
 Return JSON exactly shaped as:
-{"fix_type": "image_query" | "ffmpeg_param", "value": "<the new value>", "note": "<max 10 words>"}"""
+{"fix_type": "image_query", "value": "<the new query>", "note": "<max 10 words>"}"""
 
 MAX_RECOVERY_ATTEMPTS = 3
 
@@ -34,7 +33,6 @@ def recovery_node(state: PipelineState, error_message: str) -> dict:
     ]
 
     if attempts > MAX_RECOVERY_ATTEMPTS:
-        error_log[-1]["resolved"] = False
         return {
             "error_log": error_log,
             "recovery_attempts": attempts,
@@ -43,18 +41,14 @@ def recovery_node(state: PipelineState, error_message: str) -> dict:
 
     client = get_client()
     fix = client.json_completion(SYSTEM_PROMPT, user_prompt=error_message)
-    error_log[-1]["resolved"] = True
 
-    patch: dict = {
-        "error_log": error_log,
+    render_result = dict(state.get("render_result", {}))
+    render_result["status"] = "pending"
+    render_result["image_query_used"] = fix["value"]
+
+    return {
+        "error_log": [*error_log[:-1], {**error_log[-1], "resolved": True}],
         "recovery_attempts": attempts,
+        "render_result": render_result,
         "status": "rendering",
     }
-
-    if fix["fix_type"] == "image_query":
-        render_result = dict(state.get("render_result", {}))
-        render_result["status"] = "pending"
-        render_result["image_query_used"] = fix["value"]
-        patch["render_result"] = render_result
-
-    return patch
